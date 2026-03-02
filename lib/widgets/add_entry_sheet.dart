@@ -32,13 +32,14 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
   DateTime? _date;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  int? _reminderMinutes; // null = do not remind
+  static const _noReminder = -1;
+  int _reminderMinutes = _noReminder; // _noReminder = do not remind
   RecurrenceFrequency? _recurrenceFrequency;
 
   bool get _isEditing => widget.existingEntry != null;
 
-  static const _reminderOptions = <int?, String>{
-    null: 'Do not remind',
+  static const _reminderOptions = <int, String>{
+    _noReminder: 'Do not remind',
     5: '5 minutes before',
     15: '15 minutes before',
     30: '30 minutes before',
@@ -59,7 +60,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
       _date = e.date;
       _startTime = _parseTime(e.startTime);
       _endTime = _parseTime(e.endTime);
-      _reminderMinutes = e.reminderMinutes;
+      _reminderMinutes = e.reminderMinutes ?? _noReminder;
       _recurrenceFrequency = e.recurrenceRule?.frequency;
     } else {
       _type = widget.initialType ?? EntryType.task;
@@ -282,7 +283,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
               const SizedBox(height: 12),
 
               // Reminder
-              DropdownButtonFormField<int?>(
+              DropdownButtonFormField<int>(
                 value: _reminderMinutes,
                 decoration: const InputDecoration(
                   labelText: 'Reminder',
@@ -294,8 +295,9 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
                           child: Text(e.value),
                         ))
                     .toList(),
-                onChanged: (v) =>
-                    setState(() => _reminderMinutes = v),
+                onChanged: (v) {
+                  if (v != null) setState(() => _reminderMinutes = v);
+                },
               ),
               const SizedBox(height: 24),
 
@@ -364,7 +366,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
       startTime: _formatTime(_startTime),
       endTime: _formatTime(_endTime),
       isCompleted: widget.existingEntry?.isCompleted ?? false,
-      reminderMinutes: _reminderMinutes,
+      reminderMinutes: _reminderMinutes == _noReminder ? null : _reminderMinutes,
       recurrenceRule: _recurrenceFrequency != null
           ? RecurrenceRule(frequency: _recurrenceFrequency!)
           : null,

@@ -120,7 +120,7 @@ class ProjectsScreen extends ConsumerWidget {
   ) {
     showDialog(
       context: context,
-      builder: (_) => _AddProjectDialog(categoriesAsync: categoriesAsync),
+      builder: (_) => const _AddProjectDialog(),
     );
   }
 }
@@ -212,9 +212,7 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
 }
 
 class _AddProjectDialog extends ConsumerStatefulWidget {
-  final AsyncValue<List<model.Category>> categoriesAsync;
-
-  const _AddProjectDialog({required this.categoriesAsync});
+  const _AddProjectDialog();
 
   @override
   ConsumerState<_AddProjectDialog> createState() => _AddProjectDialogState();
@@ -247,6 +245,8 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final categoriesAsync = ref.watch(categoriesProvider);
+
     return AlertDialog(
       title: const Text('New Project'),
       content: SingleChildScrollView(
@@ -268,42 +268,43 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
             Text('Category',
                 style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
-            widget.categoriesAsync.when(
+            categoriesAsync.when(
               data: (categories) {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        ...categories.map((c) => ChoiceChip(
-                              label: Text(c.name),
-                              selected: _selectedCategoryId == c.id,
-                              onSelected: (_) {
-                                setState(
-                                    () => _selectedCategoryId = c.id);
-                              },
-                            )),
-                      ],
-                    ),
+                    if (categories.isNotEmpty)
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          ...categories.map((c) => ChoiceChip(
+                                label: Text(c.name),
+                                selected: _selectedCategoryId == c.id,
+                                onSelected: (_) {
+                                  setState(() {
+                                    _selectedCategoryId = c.id;
+                                    _newCategoryController.clear();
+                                  });
+                                },
+                              )),
+                        ],
+                      ),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _newCategoryController,
-                            decoration: const InputDecoration(
-                              hintText: 'New category...',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: _addCategory,
-                          icon: const Icon(Icons.add),
-                        ),
-                      ],
+                    TextField(
+                      controller: _newCategoryController,
+                      decoration: InputDecoration(
+                        hintText: categories.isEmpty
+                            ? 'Enter a category (e.g. "YouTube")'
+                            : 'Or type a new category...',
+                        isDense: true,
+                        border: const OutlineInputBorder(),
+                      ),
+                      onChanged: (_) {
+                        // Deselect chip when user starts typing a new one
+                        if (_selectedCategoryId != null) {
+                          setState(() => _selectedCategoryId = null);
+                        }
+                      },
                     ),
                   ],
                 );
@@ -376,26 +377,32 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
     );
   }
 
-  Future<void> _addCategory() async {
-    final name = _newCategoryController.text.trim();
-    if (name.isEmpty) return;
-
-    final id = await ref
-        .read(categoriesProvider.notifier)
-        .add(model.Category(name: name));
-    _newCategoryController.clear();
-    setState(() => _selectedCategoryId = id);
-  }
-
   Future<void> _save() async {
     final name = _nameController.text.trim();
-    if (name.isEmpty || _selectedCategoryId == null) {
+    if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a name and select a category'),
-        ),
+        const SnackBar(content: Text('Please enter a project name')),
       );
       return;
+    }
+
+    // Auto-create category from text field if none selected
+    int categoryId;
+    if (_selectedCategoryId != null) {
+      categoryId = _selectedCategoryId!;
+    } else {
+      final catName = _newCategoryController.text.trim();
+      if (catName.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select or enter a category'),
+          ),
+        );
+        return;
+      }
+      categoryId = await ref
+          .read(categoriesProvider.notifier)
+          .add(model.Category(name: catName));
     }
 
     await ref.read(projectsProvider.notifier).add(
@@ -403,7 +410,7 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
             name: name,
             // ignore: deprecated_member_use
             color: _selectedColor.value,
-            categoryId: _selectedCategoryId!,
+            categoryId: categoryId,
             deadline: _deadline,
             createdAt: DateTime.now(),
           ),
