@@ -4,6 +4,7 @@ import 'providers/providers.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/todo_screen.dart';
 import 'screens/projects_screen.dart';
+import 'theme/tavern_theme.dart';
 
 void main() {
   runApp(const ProviderScope(child: TavernboardApp()));
@@ -17,13 +18,7 @@ class TavernboardApp extends StatelessWidget {
     return MaterialApp(
       title: 'Tavernboard',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF5C6BC0),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
+      theme: TavernTheme.build(),
       home: const MainShell(),
     );
   }
@@ -53,17 +48,17 @@ class MainShell extends ConsumerWidget {
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
             selectedIcon: Icon(Icons.calendar_month),
-            label: 'Calendar',
+            label: 'Chronicle',
           ),
           NavigationDestination(
-            icon: Icon(Icons.check_box_outlined),
-            selectedIcon: Icon(Icons.check_box),
-            label: 'To-Do',
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: 'Quest Log',
           ),
           NavigationDestination(
-            icon: Icon(Icons.folder_outlined),
-            selectedIcon: Icon(Icons.folder),
-            label: 'Projects',
+            icon: Icon(Icons.shield_outlined),
+            selectedIcon: Icon(Icons.shield),
+            label: 'Campaigns',
           ),
         ],
       ),
