@@ -80,7 +80,7 @@ A comprehensive personal productivity app that integrates calendar, to-do list, 
 4. Returns materialized list for display
 
 ## External Dependencies
-- **sqflite**: SQLite (v1) — low risk, mature package
+- **hive_flutter**: Local storage (v1) — works on Android, Web, iOS, and desktop; replaced sqflite
 - **supabase_flutter**: Cloud sync (v2+) — replaces sqflite as persistence layer
 - **flutter_local_notifications**: Notifications — medium risk, platform permission handling differs across iOS/Android
 - **riverpod**: State management — low risk, actively maintained
