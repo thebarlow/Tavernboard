@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/category.dart' as model;
 import '../models/project.dart';
 import '../providers/providers.dart';
+import '../theme/tavern_theme.dart';
 import '../widgets/entry_tile.dart';
 import '../widgets/add_entry_sheet.dart';
 
@@ -16,97 +17,93 @@ class ProjectsScreen extends ConsumerWidget {
     final entriesAsync = ref.watch(entriesProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
 
-    return SafeArea(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              children: [
-                Text(
-                  'Projects',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () =>
-                      _showAddProjectDialog(context, ref, categoriesAsync),
-                  icon: const Icon(Icons.add),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: projectsAsync.when(
-              data: (projects) {
-                if (projects.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.folder_open,
-                          size: 64,
-                          color: Theme.of(context)
-                              .colorScheme
-                              .onSurface
-                              .withAlpha(77),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No projects yet',
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyLarge
-                              ?.copyWith(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface
-                                    .withAlpha(128),
-                              ),
-                        ),
-                        const SizedBox(height: 8),
-                        FilledButton.icon(
-                          onPressed: () => _showAddProjectDialog(
-                              context, ref, categoriesAsync),
-                          icon: const Icon(Icons.add),
-                          label: const Text('Create project'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return entriesAsync.when(
-                  data: (entries) {
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: projects.length,
-                      itemBuilder: (context, i) {
-                        final project = projects[i];
-                        final projectEntries = entries
-                            .where((e) => e.projectId == project.id)
-                            .toList();
-                        final taskCount = projectEntries.length;
-
-                        return _ProjectCard(
-                          project: project,
-                          taskCount: taskCount,
-                          entries: projectEntries,
-                        );
-                      },
+    return Material(
+      color: TavernTheme.parchment,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context, ref, categoriesAsync),
+            Expanded(
+              child: projectsAsync.when(
+                data: (projects) {
+                  if (projects.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('⚔', style: TextStyle(fontSize: 56, color: TavernTheme.inkLight)),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No campaigns yet',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: TavernTheme.inkLight,
+                                ),
+                          ),
+                          const SizedBox(height: 16),
+                          FilledButton.icon(
+                            onPressed: () =>
+                                _showAddProjectDialog(context, ref, categoriesAsync),
+                            icon: const Icon(Icons.add),
+                            label: const Text('Start a Campaign'),
+                          ),
+                        ],
+                      ),
                     );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Center(child: Text('Error: $e')),
-                );
-              },
-              loading: () =>
-                  const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Error: $e')),
+                  }
+
+                  return entriesAsync.when(
+                    data: (entries) {
+                      return ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        itemCount: projects.length,
+                        itemBuilder: (context, i) {
+                          final project = projects[i];
+                          final projectEntries =
+                              entries.where((e) => e.projectId == project.id).toList();
+                          return _CampaignCard(
+                            project: project,
+                            taskCount: projectEntries.length,
+                            entries: projectEntries,
+                          );
+                        },
+                      );
+                    },
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<model.Category>> categoriesAsync,
+  ) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: TavernTheme.parchment,
+        border: Border(bottom: BorderSide(color: TavernTheme.border, width: 1)),
+        boxShadow: [BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 8, 16),
+      child: Row(
+        children: [
+          const Text('⚔', style: TextStyle(color: TavernTheme.gold, fontSize: 18)),
+          const SizedBox(width: 12),
+          Text('Active Campaigns', style: Theme.of(context).textTheme.headlineSmall),
+          const Spacer(),
+          IconButton(
+            onPressed: () => _showAddProjectDialog(context, ref, categoriesAsync),
+            icon: const Icon(Icons.add, color: TavernTheme.inkMid),
           ),
         ],
       ),
@@ -125,60 +122,158 @@ class ProjectsScreen extends ConsumerWidget {
   }
 }
 
-class _ProjectCard extends ConsumerStatefulWidget {
+class _CampaignCard extends ConsumerStatefulWidget {
   final Project project;
   final int taskCount;
   final List entries;
 
-  const _ProjectCard({
+  const _CampaignCard({
     required this.project,
     required this.taskCount,
     required this.entries,
   });
 
   @override
-  ConsumerState<_ProjectCard> createState() => _ProjectCardState();
+  ConsumerState<_CampaignCard> createState() => _CampaignCardState();
 }
 
-class _ProjectCardState extends ConsumerState<_ProjectCard> {
+class _CampaignCardState extends ConsumerState<_CampaignCard> {
   bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final project = widget.project;
+    final projectColor = Color(project.color);
+    final hasDeadline = project.deadline != null;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: TavernTheme.parchmentDeep,
+        borderRadius: BorderRadius.circular(2),
+        border: Border.all(color: TavernTheme.border),
+        boxShadow: const [
+          BoxShadow(color: Color(0x55000000), blurRadius: 10, offset: Offset(0, 4)),
+          BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
       child: Column(
         children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Color(project.color),
-              radius: 16,
-            ),
-            title: Text(project.name),
-            subtitle: Text(
-              project.deadline != null
-                  ? 'Deadline: ${DateFormat('MMM d').format(project.deadline!)}'
-                  : 'No deadline',
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('${widget.taskCount} tasks'),
-                Icon(
-                  _expanded ? Icons.expand_less : Icons.expand_more,
+          // Card header with iron-nail dot
+          Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              InkWell(
+                onTap: () => setState(() => _expanded = !_expanded),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                  child: Row(
+                    children: [
+                      // Gem-colored project indicator
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              projectColor.withAlpha(200),
+                              projectColor,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: projectColor.withAlpha(100),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              project.name,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  '${widget.taskCount} quest${widget.taskCount == 1 ? '' : 's'}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                                if (hasDeadline) ...[
+                                  const SizedBox(width: 12),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: TavernTheme.deadlineRed.withAlpha(25),
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: TavernTheme.deadlineRed.withAlpha(50),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '⏰ ${DateFormat('MMM d').format(project.deadline!)}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: TavernTheme.deadlineRed,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        _expanded ? Icons.expand_less : Icons.expand_more,
+                        color: TavernTheme.inkLight,
+                        size: 20,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-            onTap: () => setState(() => _expanded = !_expanded),
+              ),
+              // Iron nail
+              Positioned(
+                top: 6,
+                child: Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: const RadialGradient(
+                      center: Alignment(-0.3, -0.3),
+                      colors: [Color(0xFF5A5A5A), Color(0xFF2D2D2D), Color(0xFF1A1A1A)],
+                    ),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x99000000), blurRadius: 3, offset: Offset(0, 1)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
+
           if (_expanded) ...[
-            const Divider(height: 1),
+            const Divider(height: 1, color: TavernTheme.border),
             if (widget.entries.isEmpty)
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No entries yet'),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'No entries yet',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               )
             else
               ...widget.entries.map(
@@ -195,13 +290,11 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                     context: context,
                     isScrollControlled: true,
                     useSafeArea: true,
-                    builder: (_) => AddEntrySheet(
-                      initialProjectId: project.id,
-                    ),
+                    builder: (_) => AddEntrySheet(initialProjectId: project.id),
                   );
                 },
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add entry'),
+                label: const Text('Add Quest'),
               ),
             ),
           ],
@@ -222,19 +315,8 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
   final _nameController = TextEditingController();
   final _newCategoryController = TextEditingController();
   int? _selectedCategoryId;
-  Color _selectedColor = Colors.blue;
+  Color _selectedColor = TavernTheme.gemAmber;
   DateTime? _deadline;
-
-  static const _colorOptions = [
-    Colors.blue,
-    Colors.red,
-    Colors.green,
-    Colors.orange,
-    Colors.purple,
-    Colors.teal,
-    Colors.pink,
-    Colors.indigo,
-  ];
 
   @override
   void dispose() {
@@ -248,7 +330,7 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
     final categoriesAsync = ref.watch(categoriesProvider);
 
     return AlertDialog(
-      title: const Text('New Project'),
+      title: const Text('New Campaign'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -257,16 +339,14 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
             TextField(
               controller: _nameController,
               decoration: const InputDecoration(
-                labelText: 'Project name',
+                labelText: 'Campaign name',
                 border: OutlineInputBorder(),
               ),
               autofocus: true,
             ),
             const SizedBox(height: 16),
 
-            // Category
-            Text('Category',
-                style: Theme.of(context).textTheme.labelLarge),
+            Text('Category', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             categoriesAsync.when(
               data: (categories) {
@@ -300,7 +380,6 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
                         border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) {
-                        // Deselect chip when user starts typing a new one
                         if (_selectedCategoryId != null) {
                           setState(() => _selectedCategoryId = null);
                         }
@@ -314,25 +393,34 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Color
-            Text('Color',
-                style: Theme.of(context).textTheme.labelLarge),
+            Text('Gem Color', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              children: _colorOptions
+              spacing: 10,
+              runSpacing: 8,
+              children: TavernTheme.gemPalette
                   .map((c) => GestureDetector(
-                        onTap: () =>
-                            setState(() => _selectedColor = c),
+                        onTap: () => setState(() => _selectedColor = c),
                         child: Container(
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: c,
-                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [c.withAlpha(200), c],
+                            ),
+                            borderRadius: BorderRadius.circular(4),
                             border: _selectedColor == c
-                                ? Border.all(width: 3, color: Colors.black)
-                                : null,
+                                ? Border.all(width: 3, color: TavernTheme.inkDark)
+                                : Border.all(color: TavernTheme.border),
+                            boxShadow: [
+                              BoxShadow(
+                                color: c.withAlpha(80),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
                         ),
                       ))
@@ -340,15 +428,13 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Deadline
             OutlinedButton.icon(
               onPressed: () async {
                 final picked = await showDatePicker(
                   context: context,
                   initialDate: DateTime.now(),
                   firstDate: DateTime.now(),
-                  lastDate:
-                      DateTime.now().add(const Duration(days: 365 * 5)),
+                  lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
                 );
                 if (picked != null) {
                   setState(() => _deadline = picked);
@@ -381,12 +467,11 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a project name')),
+        const SnackBar(content: Text('Please enter a campaign name')),
       );
       return;
     }
 
-    // Auto-create category from text field if none selected
     int categoryId;
     if (_selectedCategoryId != null) {
       categoryId = _selectedCategoryId!;
@@ -394,9 +479,7 @@ class _AddProjectDialogState extends ConsumerState<_AddProjectDialog> {
       final catName = _newCategoryController.text.trim();
       if (catName.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select or enter a category'),
-          ),
+          const SnackBar(content: Text('Please select or enter a category')),
         );
         return;
       }

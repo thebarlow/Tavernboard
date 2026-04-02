@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../models/entry.dart';
 import '../providers/providers.dart';
+import '../theme/tavern_theme.dart';
 import '../widgets/add_entry_sheet.dart';
 import '../widgets/entry_tile.dart';
 
@@ -44,19 +45,25 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         ref.watch(monthEntriesProvider(_displayedMonth));
     final projectsAsync = ref.watch(projectsProvider);
 
-    return SafeArea(
-      child: Column(
-        children: [
+    return Material(
+      color: TavernTheme.parchment,
+      child: SafeArea(
+        child: Column(
+          children: [
           // Month header
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          Container(
+            decoration: const BoxDecoration(
+              color: TavernTheme.parchment,
+              border: Border(bottom: BorderSide(color: TavernTheme.border)),
+              boxShadow: [BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2))],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
                   onPressed: _previousMonth,
-                  icon: const Icon(Icons.chevron_left),
+                  icon: const Icon(Icons.chevron_left, color: TavernTheme.inkMid),
                 ),
                 Text(
                   DateFormat('MMMM yyyy').format(_displayedMonth),
@@ -64,15 +71,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 ),
                 IconButton(
                   onPressed: _nextMonth,
-                  icon: const Icon(Icons.chevron_right),
+                  icon: const Icon(Icons.chevron_right, color: TavernTheme.inkMid),
                 ),
               ],
             ),
           ),
 
           // Day-of-week headers
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+          Container(
+            color: TavernTheme.parchment,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               children: ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
                   .map((d) => Expanded(
@@ -82,14 +90,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                             style: Theme.of(context)
                                 .textTheme
                                 .bodySmall
-                                ?.copyWith(fontWeight: FontWeight.bold),
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: TavernTheme.inkMid,
+                                ),
                           ),
                         ),
                       ))
                   .toList(),
             ),
           ),
-          const SizedBox(height: 4),
 
           // Calendar grid
           monthEntries.when(
@@ -118,12 +128,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             error: (e, _) => Center(child: Text('Error: $e')),
           ),
 
-          const Divider(height: 1),
+          const Divider(height: 1, color: TavernTheme.border),
 
           // Day detail
           Expanded(child: _DayDetail(date: selectedDate)),
         ],
       ),
+    ),
     );
   }
 
@@ -177,15 +188,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             margin: const EdgeInsets.all(2),
             decoration: BoxDecoration(
               color: isSelected
-                  ? Theme.of(context).colorScheme.primaryContainer
+                  ? TavernTheme.gold.withAlpha(80)
                   : null,
               border: isToday
-                  ? Border.all(
-                      color: Theme.of(context).colorScheme.primary,
-                      width: 2,
-                    )
+                  ? Border.all(color: TavernTheme.gold, width: 2)
                   : null,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -193,11 +201,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 Text(
                   '$day',
                   style: TextStyle(
-                    fontWeight:
-                        isToday ? FontWeight.bold : FontWeight.normal,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : null,
+                    fontFamily: 'serif',
+                    fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
+                    color: isSelected ? TavernTheme.inkDark : TavernTheme.inkDark,
                   ),
                 ),
                 if (dotColors.isNotEmpty)
@@ -248,12 +254,21 @@ class _DayDetail extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                DateFormat('EEEE, MMM d').format(date),
-                style: Theme.of(context).textTheme.titleMedium,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: TavernTheme.border)),
+              ),
+              child: Row(
+                children: [
+                  const Text('✦ ', style: TextStyle(color: TavernTheme.gold, fontSize: 10)),
+                  Text(
+                    DateFormat('EEEE, MMM d').format(date).toUpperCase(),
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: TavernTheme.inkMid,
+                        ),
+                  ),
+                ],
               ),
             ),
             Expanded(
@@ -261,14 +276,8 @@ class _DayDetail extends ConsumerWidget {
                   ? Center(
                       child: Text(
                         'No entries',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyLarge
-                            ?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withAlpha(128),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: TavernTheme.inkLight,
                             ),
                       ),
                     )
@@ -285,8 +294,11 @@ class _DayDetail extends ConsumerWidget {
               child: Center(
                 child: TextButton.icon(
                   onPressed: () => _openAddSheet(context, ref),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add event / task'),
+                  icon: const Icon(Icons.add, color: TavernTheme.inkMid),
+                  label: const Text(
+                    'Add quest / event',
+                    style: TextStyle(color: TavernTheme.inkMid),
+                  ),
                 ),
               ),
             ),

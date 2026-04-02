@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/entry.dart';
 import '../providers/providers.dart';
+import '../theme/tavern_theme.dart';
 import '../widgets/add_entry_sheet.dart';
 
 class EntryTile extends ConsumerWidget {
@@ -39,60 +40,8 @@ class EntryTile extends ConsumerWidget {
     };
 
     return Opacity(
-      opacity: entry.isCompleted ? 0.5 : 1.0,
-      child: ListTile(
-        dense: true,
-        contentPadding: EdgeInsets.zero,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 4,
-              height: 32,
-              decoration: BoxDecoration(
-                color: displayColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 8),
-            if (entry.type == EntryType.task)
-              GestureDetector(
-                onTap: () {
-                  ref.read(entriesProvider.notifier).toggleComplete(entry);
-                },
-                child: Icon(
-                  typeIcon,
-                  size: 22,
-                  color: displayColor,
-                ),
-              )
-            else
-              Icon(typeIcon, size: 22, color: displayColor),
-          ],
-        ),
-        title: Text(
-          entry.title,
-          style: TextStyle(
-            decoration:
-                entry.isCompleted ? TextDecoration.lineThrough : null,
-          ),
-        ),
-        subtitle: entry.startTime != null ? Text(entry.startTime!) : null,
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(
-            color: displayColor.withAlpha(30),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            typeLabel,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              color: displayColor,
-            ),
-          ),
-        ),
+      opacity: entry.isCompleted ? 0.45 : 1.0,
+      child: InkWell(
         onTap: () {
           showModalBottomSheet(
             context: context,
@@ -101,6 +50,110 @@ class EntryTile extends ConsumerWidget {
             builder: (_) => AddEntrySheet(existingEntry: entry),
           );
         },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: TavernTheme.border, width: 1),
+            ),
+          ),
+          child: Row(
+            children: [
+              // Gem dot + checkbox area
+              SizedBox(
+                width: 32,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Rotated gem indicator
+                    Transform.rotate(
+                      angle: 0.785, // 45 degrees
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              displayColor.withAlpha(200),
+                              displayColor,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: displayColor.withAlpha(80),
+                              blurRadius: 3,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (entry.type == EntryType.task)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            ref.read(entriesProvider.notifier).toggleComplete(entry);
+                          },
+                          child: Icon(
+                            typeIcon,
+                            size: 16,
+                            color: displayColor,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.title,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                            fontFamily: 'serif',
+                            fontWeight: FontWeight.w600,
+                            decoration: entry.isCompleted
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                    ),
+                    if (entry.startTime != null)
+                      Text(
+                        entry.startTime!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                  ],
+                ),
+              ),
+              // Type badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: displayColor.withAlpha(25),
+                  borderRadius: BorderRadius.circular(3),
+                  border: Border.all(color: displayColor.withAlpha(60)),
+                ),
+                child: Text(
+                  typeLabel,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: displayColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
