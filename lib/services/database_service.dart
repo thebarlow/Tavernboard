@@ -1,265 +1,216 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart' as p;
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/category.dart';
 import '../models/project.dart';
 import '../models/entry.dart';
 import '../models/recurrence_exception.dart';
 
+/// Hive-backed persistence — works on Android, Web, iOS, and desktop.
+/// Public interface is identical to the previous sqflite implementation.
 class DatabaseService {
-  static const _dbName = 'tavernboard.db';
-  static const _dbVersion = 1;
+  static const _categoriesBoxName = 'categories';
+  static const _projectsBoxName = 'projects';
+  static const _entriesBoxName = 'entries';
+  static const _exceptionsBoxName = 'recurrence_exceptions';
+  static const _countersBoxName = 'counters';
 
-  Database? _db;
-
-  Future<Database> get database async {
-    _db ??= await _initDb();
-    return _db!;
+  static Future<void> init() async {
+    await Hive.initFlutter();
+    await Hive.openBox(_categoriesBoxName);
+    await Hive.openBox(_projectsBoxName);
+    await Hive.openBox(_entriesBoxName);
+    await Hive.openBox(_exceptionsBoxName);
+    await Hive.openBox<int>(_countersBoxName);
   }
 
-  Future<Database> _initDb() async {
-    final dbPath = await getDatabasesPath();
-    final path = p.join(dbPath, _dbName);
+  Box get _cats => Hive.box(_categoriesBoxName);
+  Box get _projects => Hive.box(_projectsBoxName);
+  Box get _entries => Hive.box(_entriesBoxName);
+  Box get _exceptions => Hive.box(_exceptionsBoxName);
+  Box<int> get _counters => Hive.box<int>(_countersBoxName);
 
-    return openDatabase(
-      path,
-      version: _dbVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
+  int _nextId(String entity) {
+    final next = (_counters.get(entity) ?? 0) + 1;
+    _counters.put(entity, next);
+    return next;
   }
 
-  Future<void> _onCreate(Database db, int version) async {
-    await db.execute('''
-      CREATE TABLE categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE projects (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        color INTEGER NOT NULL,
-        category_id INTEGER NOT NULL,
-        deadline TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE entries (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER NOT NULL,
-        type TEXT NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT,
-        date TEXT,
-        start_time TEXT,
-        end_time TEXT,
-        color_override INTEGER,
-        is_completed INTEGER NOT NULL DEFAULT 0,
-        reminder_minutes INTEGER,
-        recurrence_rule TEXT,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-      )
-    ''');
-
-    await db.execute('''
-      CREATE TABLE recurrence_exceptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        entry_id INTEGER NOT NULL,
-        original_date TEXT NOT NULL,
-        action TEXT NOT NULL,
-        new_date TEXT,
-        FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
-      )
-    ''');
-
-    await db.execute(
-      'CREATE INDEX idx_entries_date ON entries(date)',
-    );
-    await db.execute(
-      'CREATE INDEX idx_entries_project ON entries(project_id)',
-    );
-  }
-
-  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Future migrations go here, chained by version number.
-  }
+  Map<String, dynamic> _cast(dynamic raw) =>
+      Map<String, dynamic>.from(raw as Map);
 
   // --- Categories ---
 
   Future<int> insertCategory(Category category) async {
-    final db = await database;
-    return db.insert('categories', category.toMap());
+    final id = _nextId(_categoriesBoxName);
+    await _cats.put(id, {...category.toMap(), 'id': id});
+    return id;
   }
 
-  Future<List<Category>> getCategories() async {
-    final db = await database;
-    final maps = await db.query('categories', orderBy: 'name ASC');
-    return maps.map(Category.fromMap).toList();
+  Future<List<Category>> getCategories() {
+    final items = _cats.values
+        .map((v) => Category.fromMap(_cast(v)))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return Future.value(items);
   }
 
   Future<int> updateCategory(Category category) async {
-    final db = await database;
-    return db.update(
-      'categories',
-      category.toMap(),
-      where: 'id = ?',
-      whereArgs: [category.id],
-    );
+    await _cats.put(category.id, category.toMap());
+    return 1;
   }
 
   Future<int> deleteCategory(int id) async {
-    final db = await database;
-    return db.delete('categories', where: 'id = ?', whereArgs: [id]);
+    await _cats.delete(id);
+    return 1;
   }
 
   // --- Projects ---
 
   Future<int> insertProject(Project project) async {
-    final db = await database;
-    return db.insert('projects', project.toMap());
+    final id = _nextId(_projectsBoxName);
+    await _projects.put(id, {...project.toMap(), 'id': id});
+    return id;
   }
 
-  Future<List<Project>> getProjects() async {
-    final db = await database;
-    final maps = await db.query('projects', orderBy: 'name ASC');
-    return maps.map(Project.fromMap).toList();
+  Future<List<Project>> getProjects() {
+    final items = _projects.values
+        .map((v) => Project.fromMap(_cast(v)))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return Future.value(items);
   }
 
   Future<int> updateProject(Project project) async {
-    final db = await database;
-    return db.update(
-      'projects',
-      project.toMap(),
-      where: 'id = ?',
-      whereArgs: [project.id],
-    );
+    await _projects.put(project.id, project.toMap());
+    return 1;
   }
 
   Future<int> deleteProject(int id) async {
-    final db = await database;
-    return db.delete('projects', where: 'id = ?', whereArgs: [id]);
+    await _projects.delete(id);
+    final entryKeys = _entries.keys
+        .where((k) => _cast(_entries.get(k))['project_id'] == id)
+        .toList();
+    await _entries.deleteAll(entryKeys);
+    return 1;
   }
 
-  Future<int> getProjectTaskCount(int projectId) async {
-    final db = await database;
-    final result = await db.rawQuery(
-      'SELECT COUNT(*) as count FROM entries WHERE project_id = ?',
-      [projectId],
-    );
-    return Sqflite.firstIntValue(result) ?? 0;
+  Future<int> getProjectTaskCount(int projectId) {
+    final count = _entries.values
+        .where((v) => _cast(v)['project_id'] == projectId)
+        .length;
+    return Future.value(count);
   }
 
   // --- Entries ---
 
   Future<int> insertEntry(Entry entry) async {
-    final db = await database;
-    return db.insert('entries', entry.toMap());
+    final id = _nextId(_entriesBoxName);
+    await _entries.put(id, {...entry.toMap(), 'id': id});
+    return id;
   }
 
-  Future<List<Entry>> getAllEntries() async {
-    final db = await database;
-    final maps = await db.query('entries', orderBy: 'date ASC, start_time ASC');
-    return maps.map(Entry.fromMap).toList();
+  Future<List<Entry>> getAllEntries() {
+    final items = _entries.values
+        .map((v) => Entry.fromMap(_cast(v)))
+        .toList()
+      ..sort((a, b) {
+        final dc =
+            (a.date ?? DateTime(9999)).compareTo(b.date ?? DateTime(9999));
+        if (dc != 0) return dc;
+        return (a.startTime ?? '').compareTo(b.startTime ?? '');
+      });
+    return Future.value(items);
   }
 
-  Future<List<Entry>> getEntriesForDate(DateTime date) async {
-    final db = await database;
-    final dateStr = DateTime(date.year, date.month, date.day).toIso8601String();
-    final maps = await db.query(
-      'entries',
-      where: 'date = ?',
-      whereArgs: [dateStr],
-      orderBy: 'start_time ASC',
-    );
-    return maps.map(Entry.fromMap).toList();
+  Future<List<Entry>> getEntriesForDate(DateTime date) {
+    final dateOnly = DateTime(date.year, date.month, date.day);
+    final items = _entries.values
+        .map((v) => Entry.fromMap(_cast(v)))
+        .where((e) {
+          if (e.date == null) return false;
+          return DateTime(e.date!.year, e.date!.month, e.date!.day) == dateOnly;
+        })
+        .toList()
+      ..sort((a, b) => (a.startTime ?? '').compareTo(b.startTime ?? ''));
+    return Future.value(items);
   }
 
-  Future<List<Entry>> getEntriesInRange(DateTime start, DateTime end) async {
-    final db = await database;
-    final startStr =
-        DateTime(start.year, start.month, start.day).toIso8601String();
-    final endStr =
-        DateTime(end.year, end.month, end.day).toIso8601String();
-    final maps = await db.query(
-      'entries',
-      where: 'date >= ? AND date <= ?',
-      whereArgs: [startStr, endStr],
-      orderBy: 'date ASC, start_time ASC',
-    );
-    return maps.map(Entry.fromMap).toList();
+  Future<List<Entry>> getEntriesInRange(DateTime start, DateTime end) {
+    final startOnly = DateTime(start.year, start.month, start.day);
+    final endOnly = DateTime(end.year, end.month, end.day);
+    final items = _entries.values
+        .map((v) => Entry.fromMap(_cast(v)))
+        .where((e) {
+          if (e.date == null) return false;
+          final d = DateTime(e.date!.year, e.date!.month, e.date!.day);
+          return !d.isBefore(startOnly) && !d.isAfter(endOnly);
+        })
+        .toList()
+      ..sort((a, b) {
+        final dc = a.date!.compareTo(b.date!);
+        if (dc != 0) return dc;
+        return (a.startTime ?? '').compareTo(b.startTime ?? '');
+      });
+    return Future.value(items);
   }
 
-  Future<List<Entry>> getEntriesForProject(int projectId) async {
-    final db = await database;
-    final maps = await db.query(
-      'entries',
-      where: 'project_id = ?',
-      whereArgs: [projectId],
-      orderBy: 'date ASC, start_time ASC',
-    );
-    return maps.map(Entry.fromMap).toList();
+  Future<List<Entry>> getEntriesForProject(int projectId) {
+    final items = _entries.values
+        .map((v) => Entry.fromMap(_cast(v)))
+        .where((e) => e.projectId == projectId)
+        .toList()
+      ..sort((a, b) {
+        final dc =
+            (a.date ?? DateTime(9999)).compareTo(b.date ?? DateTime(9999));
+        if (dc != 0) return dc;
+        return (a.startTime ?? '').compareTo(b.startTime ?? '');
+      });
+    return Future.value(items);
   }
 
-  Future<List<Entry>> getEntriesWithNoDate() async {
-    final db = await database;
-    final maps = await db.query(
-      'entries',
-      where: 'date IS NULL',
-      orderBy: 'created_at ASC',
-    );
-    return maps.map(Entry.fromMap).toList();
+  Future<List<Entry>> getEntriesWithNoDate() {
+    final items = _entries.values
+        .map((v) => Entry.fromMap(_cast(v)))
+        .where((e) => e.date == null)
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return Future.value(items);
   }
 
-  Future<List<Entry>> getRecurringEntries() async {
-    final db = await database;
-    final maps = await db.query(
-      'entries',
-      where: 'recurrence_rule IS NOT NULL',
-    );
-    return maps.map(Entry.fromMap).toList();
+  Future<List<Entry>> getRecurringEntries() {
+    final items = _entries.values
+        .map((v) => Entry.fromMap(_cast(v)))
+        .where((e) => e.recurrenceRule != null)
+        .toList();
+    return Future.value(items);
   }
 
   Future<int> updateEntry(Entry entry) async {
-    final db = await database;
-    return db.update(
-      'entries',
-      entry.toMap(),
-      where: 'id = ?',
-      whereArgs: [entry.id],
-    );
+    await _entries.put(entry.id, entry.toMap());
+    return 1;
   }
 
   Future<int> deleteEntry(int id) async {
-    final db = await database;
-    return db.delete('entries', where: 'id = ?', whereArgs: [id]);
+    await _entries.delete(id);
+    final exKeys = _exceptions.keys
+        .where((k) => _cast(_exceptions.get(k))['entry_id'] == id)
+        .toList();
+    await _exceptions.deleteAll(exKeys);
+    return 1;
   }
 
   // --- Recurrence Exceptions ---
 
   Future<int> insertRecurrenceException(RecurrenceException exception) async {
-    final db = await database;
-    return db.insert('recurrence_exceptions', exception.toMap());
+    final id = _nextId(_exceptionsBoxName);
+    await _exceptions.put(id, {...exception.toMap(), 'id': id});
+    return id;
   }
 
-  Future<List<RecurrenceException>> getExceptionsForEntry(int entryId) async {
-    final db = await database;
-    final maps = await db.query(
-      'recurrence_exceptions',
-      where: 'entry_id = ?',
-      whereArgs: [entryId],
-    );
-    return maps.map(RecurrenceException.fromMap).toList();
-  }
-
-  Future<void> close() async {
-    final db = await database;
-    await db.close();
-    _db = null;
+  Future<List<RecurrenceException>> getExceptionsForEntry(int entryId) {
+    final items = _exceptions.values
+        .map((v) => RecurrenceException.fromMap(_cast(v)))
+        .where((e) => e.entryId == entryId)
+        .toList();
+    return Future.value(items);
   }
 }

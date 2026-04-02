@@ -182,12 +182,12 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
               projectsAsync.when(
                 data: (projects) {
                   if (projects.isEmpty) {
-                    return const Text('Create a project first');
+                    return const Text('Create a campaign first');
                   }
                   return DropdownButtonFormField<int>(
                     value: _projectId,
                     decoration: const InputDecoration(
-                      labelText: 'Project',
+                      labelText: 'Campaign',
                       border: OutlineInputBorder(),
                     ),
                     items: projects
@@ -348,7 +348,7 @@ class _AddEntrySheetState extends ConsumerState<AddEntrySheet> {
     if (title.isEmpty || _projectId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter a title and select a project'),
+          content: Text('Please enter a title and select a campaign'),
         ),
       );
       return;
