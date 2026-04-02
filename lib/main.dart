@@ -4,9 +4,12 @@ import 'providers/providers.dart';
 import 'screens/calendar_screen.dart';
 import 'screens/todo_screen.dart';
 import 'screens/projects_screen.dart';
+import 'services/database_service.dart';
 import 'theme/tavern_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await DatabaseService.init();
   runApp(const ProviderScope(child: TavernboardApp()));
 }
 
