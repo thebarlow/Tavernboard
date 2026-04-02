@@ -1,20 +1,20 @@
 # Tavernboard — Architecture Spec
 
 ## Summary
-A comprehensive personal productivity app that integrates calendar, to-do list, project management, and deadline tracking into a single platform. Built for a single user managing multiple creative endeavors, professional obligations, and daily life. v1 targets Android + Web with local SQLite; v2 adds Supabase cloud sync; v3 adds iOS.
+A personal productivity app integrating calendar, quest log (to-do), and campaign (project) management into a single platform. Built for a single user managing creative endeavors, professional obligations, and daily life. v1 is live on Android + Web with local Hive storage. v2 adds Supabase cloud sync. v3 adds iOS.
 
 ## Classification
 - **Type**: Personal productivity app (mobile + web first)
 - **Interface**: Flutter (cross-platform: Android + Web → iOS later)
-- **Persistence**: Local SQLite (v1) → Supabase cloud (v2+)
+- **Persistence**: Hive/IndexedDB (v1, local) → Supabase cloud (v2+)
 
 ## Roadmap
-| Version | Platforms | Data | Notes |
+| Version | Platforms | Data | Status |
 |---|---|---|---|
-| v1 | Android + Web | Local SQLite | Buildable on Windows |
-| v2 | Android + Web | Supabase (cloud sync) | Requires Supabase setup; SQLite replaced |
+| v1 | Android + Web | Hive (local) | ✅ Live at tavernboard.matthewbarlow.me |
+| v2 | Android + Web | Supabase (cloud sync) | Planned — data loss risk with local storage |
 | v3 | + iOS | Supabase | Requires Mac or Codemagic CI for iOS build |
-| v4 | + Windows desktop | Supabase | Flutter desktop, deferred |
+| v4 | + Windows desktop | Supabase | Deferred |
 
 ## Go/No-Go Score
 | Axis | Score (1–5) |
@@ -29,31 +29,32 @@ A comprehensive personal productivity app that integrates calendar, to-do list, 
 | Layer | Choice | Reason |
 |---|---|---|
 | Language | Dart | Flutter's language, readable for Python developers |
-| Framework | Flutter | Best cross-platform mobile UI toolkit, hot reload |
-| Database | SQLite via sqflite | Local-first, no server needed, reliable |
+| Framework | Flutter | Cross-platform: one codebase for Android, Web, iOS, desktop |
+| Storage (v1) | hive_flutter | Works on Android, Web, iOS, desktop; no server needed |
+| Storage (v2+) | supabase_flutter | Cloud sync, replaces Hive |
 | State mgmt | Riverpod | Type-safe, testable, scales well |
-| Notifications | flutter_local_notifications | Mature, well-documented |
-| Recurrence | rrule (custom impl) | Complex recurrence patterns |
-| Testing | flutter_test | Unit tests for core logic |
-| Target (v1) | Android + Web | Primary build targets |
-| Target (v2) | Android + Web + iOS | iOS requires Mac or Codemagic CI |
-| Deployment (v1) | Sideloaded APK + hosted web app | Personal use, no stores needed |
-| Deployment (v2) | + TestFlight (iOS) | Codemagic handles iOS build in CI |
+| Notifications (web) | Browser Notification API (package:web) | Works in Chrome/Firefox/Safari; fires while tab is open |
+| Notifications (Android) | flutter_local_notifications | Deferred to v2 |
+| Recurrence | Custom RecurrenceEngine | Daily/weekly/monthly; complex rrules deferred |
+| Testing | flutter_test | Unit tests for core logic (pending) |
+| Deployment (v1) | Cloudflare Pages (web) + sideloaded APK (Android) | GitHub Actions builds Flutter, Cloudflare serves web |
+| Deployment (v2+) | + TestFlight via Codemagic CI | For iOS |
 
 ## Components
-- **CalendarScreen**: Monthly grid view (home screen). Tap a day to expand day detail showing all entries. Primary entry point for adding new items.
-- **TodoScreen**: Filtered/grouped list of tasks. Sections: Today, Upcoming, No Date. Filter by project and category.
-- **ProjectsScreen**: List of all projects with task counts and deadlines. Tap to expand into project detail with all child entries.
-- **AddEntryDialog**: Modal dialog for creating Task/Event/Deadline. Opened from calendar day click or contextually from other screens. (Bottom sheet on mobile in v2.)
-- **NotificationService**: Schedules and manages local notifications based on user-set reminders.
-- **RecurrenceEngine**: Generates occurrences from rrule-style recurrence patterns.
-- **DatabaseService**: SQLite CRUD operations, migrations, query helpers.
+- **CalendarScreen**: Monthly grid view (home — "Chronicle" tab). Tap a day to expand detail showing all entries. Primary entry point for adding items.
+- **TodoScreen**: Filtered/grouped task list ("Quest Log" tab). Sections: Today's Adventures, Upcoming Quests, Standing Orders. Filter by campaign and category.
+- **ProjectsScreen**: List of campaigns with task counts and deadlines ("Campaigns" tab). Tap to expand into campaign detail.
+- **AddEntrySheet**: Bottom sheet modal for creating Task/Event/Deadline. Opened from calendar or contextually from other screens.
+- **NotificationService**: Web — uses Browser Notification API, checks due reminders every minute via timer. Android — stub (flutter_local_notifications deferred to v2).
+- **RecurrenceEngine**: Generates occurrences from recurrence rules. Handles daily/weekly/monthly with skip/reschedule exceptions.
+- **DatabaseService**: Hive CRUD operations. Same public interface will be preserved when migrating to Supabase.
 - **StateLayer (Riverpod)**: Providers for projects, entries, categories, and UI state.
+- **TavernTheme**: Medieval tavern visual design — parchment/wood palette, serif fonts, gem project colors, gold accents.
 
 ## Data Model (key entities)
 
-- **Project**: id, name, color, category_id (FK), deadline (optional), created_at
-- **Entry**: id, project_id (FK), type (task|event|deadline), title, description, date (optional for tasks), start_time, end_time, color_override (nullable), is_completed, reminder_time (nullable, null = do not remind), recurrence_rule (nullable), created_at
+- **Project (Campaign)**: id, name, color (gem palette), category_id (FK), deadline (optional), created_at
+- **Entry**: id, project_id (FK), type (task|event|deadline), title, description, date (optional for tasks), start_time, end_time, color_override (nullable), is_completed, reminder_minutes (nullable, null = do not remind), recurrence_rule (nullable), created_at
 - **Category**: id, name (user-defined: "Acting", "YouTube", "Chores", etc.)
 - **RecurrenceException**: id, entry_id (FK), original_date, action (skip|reschedule), new_date (nullable)
 
@@ -63,15 +64,20 @@ A comprehensive personal productivity app that integrates calendar, to-do list, 
 - Every entry MUST belong to a project
 - RecurrenceException belongs to Entry (many-to-one)
 
+## Data Storage Notes
+- **v1 web**: Hive uses IndexedDB in the browser. Data is per-browser, local only. Clearing browser site data will destroy all entries. This is the primary motivation for v2 Supabase migration.
+- **v1 Android**: Hive uses the app's local file system. Data persists until app is uninstalled.
+- **v2+**: Supabase replaces Hive. DatabaseService public interface is preserved to minimize refactor scope.
+
 ## Data Flow
 
 **Adding a task from the calendar:**
 1. User taps a day on CalendarScreen
 2. Day detail expands showing existing entries
-3. User clicks "+ Add event / task"
-4. AddEntryDialog opens with date pre-filled
-5. User selects type (Task), fills title, assigns Project, sets reminder
-6. On save → DatabaseService inserts Entry → Riverpod state refreshes → CalendarScreen and TodoScreen update → NotificationService schedules reminder
+3. User taps "+ Add quest / event"
+4. AddEntrySheet opens with date pre-filled
+5. User selects type (Task), fills title, assigns Campaign, sets reminder
+6. On save → DatabaseService inserts Entry → Riverpod state refreshes → CalendarScreen and TodoScreen update → NotificationService will fire at reminder time
 
 **Recurring event generation:**
 1. RecurrenceEngine reads Entry.recurrence_rule
@@ -79,161 +85,88 @@ A comprehensive personal productivity app that integrates calendar, to-do list, 
 3. Checks RecurrenceException table for skips/reschedules
 4. Returns materialized list for display
 
+**Web notification flow:**
+1. On app start, browser prompts user to allow notifications
+2. Timer fires every 60 seconds
+3. All entries with reminder_minutes set are checked against current time
+4. If now >= entry_time - reminder_minutes → browser notification fires
+5. Each entry only notifies once per session (resets on page refresh)
+
 ## External Dependencies
-- **hive_flutter**: Local storage (v1) — works on Android, Web, iOS, and desktop; replaced sqflite
-- **supabase_flutter**: Cloud sync (v2+) — replaces sqflite as persistence layer
-- **flutter_local_notifications**: Notifications — medium risk, platform permission handling differs across iOS/Android
+- **hive_flutter**: Local storage (v1) — Android, Web, iOS, desktop compatible
+- **package:web**: Browser Notification API interop for web notifications
+- **supabase_flutter**: Cloud sync (v2+) — will replace hive_flutter
+- **flutter_local_notifications**: Android/iOS notifications (v2+) — deferred
 - **riverpod**: State management — low risk, actively maintained
-- v1: No network dependencies. Fully offline.
-- v2+: Requires internet for data sync. No offline support planned.
+- **intl**: Date formatting
 
-## UI Mockup
-
-### Calendar Screen (Home)
-```
-┌─────────────────────────────────┐
-│  ◀  February 2026          ▶   │
-├────┬────┬────┬────┬────┬────┬───┤
-│ Su │ Mo │ Tu │ We │ Th │ Fr │ Sa│
-├────┼────┼────┼────┼────┼────┼───┤
-│    │    │    │    │    │ 1  │ 2 │
-│    │ 3  │ 4  │ 5● │ 6  │ 7  │ 8 │
-│ 9  │ 10 │ 11 │ 12 │13● │ 14 │15 │
-│ 16 │ 17 │18●●│ 19 │ 20 │ 21 │22 │
-│ 23 │ 24 │ 25 │ 26 │ 27 │ 28 │   │
-└────┴────┴────┴────┴────┴────┴───┘
-  ● = project color dot (multiple dots for multiple entries)
-
-  [Day detail on tap ▼]
-┌─────────────────────────────────┐
-│ Wed Feb 18                      │
-│ ● Physics project deadline  [D] │
-│ ● Film audition 2:00pm     [E] │
-│ ◌ Buy groceries            [T] │  ← greyed if done
-│  + Add event / task             │
-└─────────────────────────────────┘
-│  [Calendar]  [To-Do]  [Projects]│
-└─────────────────────────────────┘
-```
-
-### To-Do Screen
-```
-┌─────────────────────────────────┐
-│  To-Do                          │
-│  [All ▼]  [Project ▼]  [Cat ▼] │
-├─────────────────────────────────┤
-│ TODAY                           │
-│  ● ☐ Buy groceries    Chores   │
-│  ● ☐ Read ch. 4       Feb 18   │
-│                                 │
-│ UPCOMING                        │
-│  ● ☐ Submit report    Feb 22   │
-│  ● ☐ Call agent       Mar 1    │
-│                                 │
-│ NO DATE                         │
-│  ● ☐ Clean desk       Chores   │
-│  ● ☐ Update reel      YouTube  │
-├─────────────────────────────────┤
-│  [Calendar]  [To-Do]  [Projects]│
-└─────────────────────────────────┘
-  ● = project color
-```
-
-### Projects Screen
-```
-┌─────────────────────────────────┐
-│  Projects                  [+]  │
-├─────────────────────────────────┤
-│ ● Physics Thesis     3 tasks   │
-│   Deadline: May 15              │
-│                                 │
-│ ● Short Film         5 tasks   │
-│   Deadline: Apr 1               │
-│                                 │
-│ ● Chores             8 tasks   │
-│   No deadline                   │
-│                                 │
-│ ● YouTube Channel    4 tasks   │
-│   No deadline                   │
-├─────────────────────────────────┤
-│  [Calendar]  [To-Do]  [Projects]│
-└─────────────────────────────────┘
-```
-
-### Add Entry (Dialog)
-```
-┌─────────────────────────────────┐
-│  New Entry             [Cancel] │
-│                                 │
-│  Type:  ○ Task  ○ Event  ○ Deadline│
-│                                 │
-│  Title: [........................]│
-│  Project: [Select project ▼]   │
-│  Category: [Auto from project] │
-│  Date: [Feb 18]  Time: [--:--] │
-│  Repeat: [None ▼]              │
-│  Reminder: [Select ▼]          │
-│    Options: Do not remind /     │
-│    5m / 15m / 30m / 1h / 1d /  │
-│    Custom                       │
-│  Color: [Use project color ▼]  │
-│                                 │
-│          [Save]                 │
-└─────────────────────────────────┘
-```
+## UI Design
+Medieval tavern theme applied throughout:
+- **Background**: Oak wood brown `#8B6F47`
+- **Cards/screens**: Parchment `#EFE8D8`
+- **Accent**: Gold `#C9A961`
+- **Text**: Ink dark `#3D2E1F`
+- **Project colors**: Gem palette (amber, sapphire, ruby, emerald, amethyst, opal, topaz, onyx)
+- **Font**: System serif for headings, default sans-serif for body
+- **Nav labels**: Chronicle (calendar), Quest Log (to-do), Campaigns (projects)
 
 ## MVP Scope
-### v1 — Ship this
+### v1 — ✅ Done
 - Calendar monthly grid with day expansion
 - Create/edit/delete Tasks, Events, and Deadlines
-- Projects with user-assigned colors
+- Campaigns (projects) with gem color palette
 - User-defined categories
-- To-do list with Today/Upcoming/No Date grouping
-- Filter by project and category
-- Completed tasks greyed out on calendar and to-do
-- Mandatory reminder field with "Do not remind" option
-- Local notifications
+- Quest Log with Today/Upcoming/No Date grouping
+- Filter by campaign and category
+- Completed tasks greyed out
+- Reminder field with browser notifications (web, while tab open)
 - Basic recurrence (daily, weekly, monthly)
-- Local SQLite persistence
+- Hive local persistence
+- Medieval tavern theme
+- Deployed: tavernboard.matthewbarlow.me + Android APK
+
+### v1 — ❌ Not yet done
 - Unit tests for data model and recurrence logic
+- Android notifications (flutter_local_notifications)
 
-**Done when:** The user can manage all their projects, tasks, events, and deadlines from a single app, see everything on a color-coded calendar, get reminders, and have recurring items auto-generate.
-
-### Future — Don't build yet
+### Future (v2+) — Don't build yet
+- Supabase cloud sync (high priority — data loss risk with local storage)
+- iOS build via Codemagic CI
+- Background push notifications (requires server + Service Worker)
 - Complex recurrence ("every 2nd Tuesday", custom rrules)
 - Search across all entries
 - Data export/backup
-- Widgets (home screen)
-- Dark mode / theming
 - Weekly/daily calendar views
 - Drag-and-drop rescheduling
 - Google Calendar sync
+- Web sidebar navigation (replace bottom nav for desktop breakpoint)
 
 ## Risk Register
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Flutter/Dart learning curve | High | Start with UI scaffolding, lean on hot reload |
-| Notification permissions (iOS/Android) | Medium | Request permissions explicitly at first launch |
-| Flutter web layout differences | Low | Bottom nav bar needs minor tweak for browser; defer to v1 polish |
-| Complex recurrence bugs | Medium | Defer complex rrules to later, thorough unit tests for basic patterns |
-| SQLite → Supabase migration (v1 → v2) | Medium | Data layer refactor; plan schema in v1 to match Supabase structure |
+| Data loss from browser cache clear (v1) | High | Migrate to Supabase in v2 — do not encourage heavy use until then |
+| Flutter/Dart learning curve | High | Lean on hot reload; codebase is well-structured |
+| Notification permission denied by user | Medium | Graceful — app works without it, reminders just don't fire |
+| Hive → Supabase migration complexity | Medium | DatabaseService interface is stable; only implementation changes |
 | iOS build requires Mac or CI | Medium | Use Codemagic free tier for iOS builds in v3 |
-| Scope creep from "comprehensive" requirement | High | Stick to MVP list, re-score before adding features |
+| Complex recurrence bugs | Medium | Defer complex rrules, add unit tests before v2 |
 
 ## Assumptions
 | Assumption | Impact |
 |---|---|
 | Single user — no multi-user or auth needed in v1 | Structural |
-| Android + Web are primary targets for v1 | Structural |
-| v2 adds Supabase sync; SQLite is replaced, not extended | Structural |
-| iOS added in v3 via Codemagic CI (no Mac required locally) | Structural |
-| All data fits comfortably in local SQLite (v1) | Performance |
-| Flutter SDK will be installed before development begins | Minimal |
+| User accepts data loss risk of local storage in v1 | Accepted risk |
+| v2 Supabase replaces Hive entirely — no hybrid | Structural |
+| iOS added in v3 via Codemagic CI | Structural |
+| Web notifications only fire while tab is open (v1) | Known limitation |
 
 ## Open Questions
 - [x] ~~Platform targets~~ → Android + Web (v1), Supabase sync (v2), iOS (v3)
 - [x] ~~App name~~ → Tavernboard
-- [ ] Flutter SDK not yet installed — developer will set up before building
-- [ ] Web layout polish — bottom nav bar tweak for browser (v1 post-MVP)
+- [x] ~~Storage solution~~ → Hive (v1), Supabase (v2)
+- [x] ~~Web deployment~~ → Cloudflare Pages via GitHub Actions
+- [x] ~~Web notifications~~ → Browser Notification API implemented
+- [ ] Unit tests — pending
 - [ ] Supabase project setup — deferred to v2
 - [ ] Codemagic CI setup for iOS — deferred to v3
+- [ ] Web sidebar nav for desktop breakpoint — deferred to v1 polish
