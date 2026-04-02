@@ -102,30 +102,33 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           ),
 
           // Calendar grid
-          monthEntries.when(
-            data: (entryMap) {
-              return projectsAsync.when(
-                data: (projects) {
-                  final projectColors = <int, Color>{};
-                  for (final p in projects) {
-                    projectColors[p.id!] = Color(p.color);
-                  }
-                  return _buildCalendarGrid(
-                    context,
-                    ref,
-                    selectedDate,
-                    entryMap,
-                    projectColors,
-                  );
-                },
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
-                error: (e, _) => Center(child: Text('Error: $e')),
-              );
-            },
-            loading: () =>
-                const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Center(child: Text('Error: $e')),
+          Flexible(
+            fit: FlexFit.loose,
+            child: monthEntries.when(
+              data: (entryMap) {
+                return projectsAsync.when(
+                  data: (projects) {
+                    final projectColors = <int, Color>{};
+                    for (final p in projects) {
+                      projectColors[p.id!] = Color(p.color);
+                    }
+                    return _buildCalendarGrid(
+                      context,
+                      ref,
+                      selectedDate,
+                      entryMap,
+                      projectColors,
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                );
+              },
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Error: $e')),
+            ),
           ),
 
           const Divider(height: 1, color: TavernTheme.border),
