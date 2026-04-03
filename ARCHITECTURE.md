@@ -1,20 +1,20 @@
 # Tavernboard — Architecture Spec
 
 ## Summary
-A personal productivity app integrating calendar, quest log (to-do), and campaign (project) management into a single platform. Built for a single user managing creative endeavors, professional obligations, and daily life. v1 is live on Android + Web with local Hive storage. v2 adds Supabase cloud sync. v3 adds iOS.
+A personal productivity app integrating calendar, quest log (to-do), and campaign (project) management into a single platform. Built for a single user managing creative endeavors, professional obligations, and daily life. Alpha is live on Android + Web with local Hive storage. v1 adds Supabase cloud sync. v2 adds iOS.
 
 ## Classification
 - **Type**: Personal productivity app (mobile + web first)
 - **Interface**: Flutter (cross-platform: Android + Web → iOS later)
-- **Persistence**: Hive/IndexedDB (v1, local) → Supabase cloud (v2+)
+- **Persistence**: Hive/IndexedDB (alpha, local) → Supabase cloud (v1+)
 
 ## Roadmap
 | Version | Platforms | Data | Status |
 |---|---|---|---|
-| v1 | Android + Web | Hive (local) | ✅ Live at tavernboard.matthewbarlow.me |
-| v2 | Android + Web | Supabase (cloud sync) | Planned — data loss risk with local storage |
-| v3 | + iOS | Supabase | Requires Mac or Codemagic CI for iOS build |
-| v4 | + Windows desktop | Supabase | Deferred |
+| Alpha | Android + Web | Hive (local) | ✅ Live at tavernboard.matthewbarlow.me |
+| v1 | Android + Web | Supabase (cloud sync) | Planned — eliminates data loss risk |
+| v2 | + iOS | Supabase | Requires Mac or Codemagic CI for iOS build |
+| v3 | + Windows desktop | Supabase | Deferred |
 
 ## Go/No-Go Score
 | Axis | Score (1–5) |
@@ -30,11 +30,11 @@ A personal productivity app integrating calendar, quest log (to-do), and campaig
 |---|---|---|
 | Language | Dart | Flutter's language, readable for Python developers |
 | Framework | Flutter | Cross-platform: one codebase for Android, Web, iOS, desktop |
-| Storage (v1) | hive_flutter | Works on Android, Web, iOS, desktop; no server needed |
-| Storage (v2+) | supabase_flutter | Cloud sync, replaces Hive |
+| Storage (alpha) | hive_flutter | Works on Android, Web, iOS, desktop; no server needed |
+| Storage (v1+) | supabase_flutter | Cloud sync, replaces Hive |
 | State mgmt | Riverpod | Type-safe, testable, scales well |
 | Notifications (web) | Browser Notification API (package:web) | Works in Chrome/Firefox/Safari; fires while tab is open |
-| Notifications (Android) | flutter_local_notifications | Deferred to v2 |
+| Notifications (Android) | flutter_local_notifications | Deferred to v1 |
 | Recurrence | Custom RecurrenceEngine | Daily/weekly/monthly; complex rrules deferred |
 | Testing | flutter_test | Unit tests for core logic (pending) |
 | Deployment (v1) | Cloudflare Pages (web) + sideloaded APK (Android) | GitHub Actions builds Flutter, Cloudflare serves web |
@@ -65,9 +65,9 @@ A personal productivity app integrating calendar, quest log (to-do), and campaig
 - RecurrenceException belongs to Entry (many-to-one)
 
 ## Data Storage Notes
-- **v1 web**: Hive uses IndexedDB in the browser. Data is per-browser, local only. Clearing browser site data will destroy all entries. This is the primary motivation for v2 Supabase migration.
-- **v1 Android**: Hive uses the app's local file system. Data persists until app is uninstalled.
-- **v2+**: Supabase replaces Hive. DatabaseService public interface is preserved to minimize refactor scope.
+- **Alpha web**: Hive uses IndexedDB in the browser. Data is per-browser, local only. Clearing browser site data will destroy all entries. This is the primary motivation for v1 Supabase migration.
+- **Alpha Android**: Hive uses the app's local file system. Data persists until app is uninstalled.
+- **v1+**: Supabase replaces Hive. DatabaseService public interface is preserved to minimize refactor scope.
 
 ## Data Flow
 
@@ -110,8 +110,8 @@ Medieval tavern theme applied throughout:
 - **Font**: System serif for headings, default sans-serif for body
 - **Nav labels**: Chronicle (calendar), Quest Log (to-do), Campaigns (projects)
 
-## MVP Scope
-### v1 — ✅ Done
+## Scope
+### Alpha — ✅ Done
 - Calendar monthly grid with day expansion
 - Create/edit/delete Tasks, Events, and Deadlines
 - Campaigns (projects) with gem color palette
@@ -125,12 +125,16 @@ Medieval tavern theme applied throughout:
 - Medieval tavern theme
 - Deployed: tavernboard.matthewbarlow.me + Android APK
 
-### v1 — ❌ Not yet done
+### Alpha — ❌ Not yet done
 - Unit tests for data model and recurrence logic
 - Android notifications (flutter_local_notifications)
 
+### v1 — Build next
+- Supabase cloud sync (replaces Hive — eliminates data loss risk)
+- Android notifications
+- Unit tests
+
 ### Future (v2+) — Don't build yet
-- Supabase cloud sync (high priority — data loss risk with local storage)
 - iOS build via Codemagic CI
 - Background push notifications (requires server + Service Worker)
 - Complex recurrence ("every 2nd Tuesday", custom rrules)
@@ -144,10 +148,10 @@ Medieval tavern theme applied throughout:
 ## Risk Register
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Data loss from browser cache clear (v1) | High | Migrate to Supabase in v2 — do not encourage heavy use until then |
+| Data loss from browser cache clear (alpha) | High | Migrate to Supabase in v1 — do not encourage heavy use until then |
 | Flutter/Dart learning curve | High | Lean on hot reload; codebase is well-structured |
 | Notification permission denied by user | Medium | Graceful — app works without it, reminders just don't fire |
-| Hive → Supabase migration complexity | Medium | DatabaseService interface is stable; only implementation changes |
+| Hive → Supabase migration (alpha → v1) | Medium | DatabaseService interface is stable; only implementation changes |
 | iOS build requires Mac or CI | Medium | Use Codemagic free tier for iOS builds in v3 |
 | Complex recurrence bugs | Medium | Defer complex rrules, add unit tests before v2 |
 
@@ -155,9 +159,9 @@ Medieval tavern theme applied throughout:
 | Assumption | Impact |
 |---|---|
 | Single user — no multi-user or auth needed in v1 | Structural |
-| User accepts data loss risk of local storage in v1 | Accepted risk |
-| v2 Supabase replaces Hive entirely — no hybrid | Structural |
-| iOS added in v3 via Codemagic CI | Structural |
+| User accepts data loss risk of local storage in alpha | Accepted risk |
+| v1 Supabase replaces Hive entirely — no hybrid | Structural |
+| iOS added in v2 via Codemagic CI | Structural |
 | Web notifications only fire while tab is open (v1) | Known limitation |
 
 ## Open Questions
@@ -166,7 +170,8 @@ Medieval tavern theme applied throughout:
 - [x] ~~Storage solution~~ → Hive (v1), Supabase (v2)
 - [x] ~~Web deployment~~ → Cloudflare Pages via GitHub Actions
 - [x] ~~Web notifications~~ → Browser Notification API implemented
-- [ ] Unit tests — pending
-- [ ] Supabase project setup — deferred to v2
-- [ ] Codemagic CI setup for iOS — deferred to v3
-- [ ] Web sidebar nav for desktop breakpoint — deferred to v1 polish
+- [ ] Unit tests — pending (alpha polish)
+- [ ] Supabase project setup — v1
+- [ ] Android notifications — v1
+- [ ] Codemagic CI setup for iOS — v2
+- [ ] Web sidebar nav for desktop breakpoint — v1 polish
