@@ -1,0 +1,17 @@
+{
+  "score": 8,
+  "agree": false,
+  "critical_issues": [
+    "entries CHECK constraint does not include 'habit_checkin' type required by HabitTrackerWidget",
+    "DailyReminderWidget dismiss state reset logic was vague — 'stored in widget config' with no mechanism described for midnight reset",
+    "collaborators.collaborator_id resolution from invited_email not described — RLS policies will never match for newly registered invited users without a login-time resolution step",
+    "flutter_pdfview does not support bytes loading on Flutter web — pdfx must be used instead"
+  ],
+  "suggestions": [
+    "Add 'habit_checkin' to entries.type CHECK constraint",
+    "Describe the dismissed_on date-comparison mechanism for DailyReminderWidget explicitly",
+    "Add constraint note about collaborator email-to-ID resolution on login",
+    "Replace flutter_pdfview with pdfx and note CanvasKit renderer requirement"
+  ],
+  "summary": "The spec is highly detailed and covers all required sections with specific versions, full SQL schemas, code skeletons, and explicit constraints. Four critical issues were found: a missing CHECK value for habit entries, underspecified reminder dismiss logic, a missing collaborator resolution step that would cause RLS failures, and use of a PDF library that doesn't work on Flutter web. Fixing these yields a production-grade spec."
+}
