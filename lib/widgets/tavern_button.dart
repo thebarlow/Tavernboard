@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/tavern_theme.dart';
 
 enum TavernButtonVariant { primary, secondary, danger }
 
@@ -42,8 +43,8 @@ class TavernButton extends StatelessWidget {
         return ElevatedButton(
           onPressed: isLoading ? null : onPressed,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFC0392B),
-            foregroundColor: Colors.white,
+            backgroundColor: TavernColors.error,
+            foregroundColor: TavernColors.textPrimary,
           ),
           child: child,
         );

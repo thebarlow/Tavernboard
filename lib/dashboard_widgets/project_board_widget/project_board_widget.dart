@@ -146,13 +146,13 @@ class _CreateProjectDialogState extends ConsumerState<_CreateProjectDialog> {
   }
 }
 
-class _ProjectTile extends StatelessWidget {
+class _ProjectTile extends ConsumerWidget {
   final Project project;
 
   const _ProjectTile({required this.project});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     Color dotColor;
     try {
       final hex = project.color.replaceFirst('#', '');
@@ -171,6 +171,133 @@ class _ProjectTile extends StatelessWidget {
               style: Theme.of(context).textTheme.bodySmall,
             )
           : null,
+      trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert, color: TavernColors.textSecondary, size: 18),
+        color: TavernColors.surfaceElevated,
+        onSelected: (value) async {
+          if (value == 'edit') {
+            showDialog<void>(
+              context: context,
+              builder: (ctx) => _EditProjectDialog(project: project, ref: ref),
+            );
+          } else if (value == 'delete') {
+            try {
+              await ref.read(projectServiceProvider).deleteProject(project.id);
+              ref.invalidate(projectsProvider);
+            } catch (e) {
+              if (context.mounted) {
+                TavernSnackbar.showError(context, 'Failed to delete campaign');
+              }
+            }
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditProjectDialog extends ConsumerStatefulWidget {
+  final Project project;
+  final WidgetRef ref;
+
+  const _EditProjectDialog({required this.project, required this.ref});
+
+  @override
+  ConsumerState<_EditProjectDialog> createState() => _EditProjectDialogState();
+}
+
+class _EditProjectDialogState extends ConsumerState<_EditProjectDialog> {
+  late final TextEditingController _nameController;
+  String? _nameError;
+  bool _isSaving = false;
+
+  static const _swatchColors = [
+    '#C8860A', '#8B4513', '#5C3D1E', '#27AE60',
+    '#2980B9', '#8E44AD', '#C0392B', '#F5E6C8',
+  ];
+  late String _selectedColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.project.name);
+    _selectedColor = widget.project.color;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Name is required');
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(projectServiceProvider).updateProject(widget.project.id, {
+        'name': name,
+        'color': _selectedColor,
+      });
+      ref.invalidate(projectsProvider);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) TavernSnackbar.showError(context, 'Failed to update campaign');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TavernDialog(
+      title: 'Edit Campaign',
+      onSave: _save,
+      isSaving: _isSaving,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TavernTextField(
+            controller: _nameController,
+            label: 'Name',
+            required: true,
+            errorText: _nameError,
+            onChanged: (_) => setState(() => _nameError = null),
+          ),
+          const SizedBox(height: 16),
+          Text('Color', style: Theme.of(context).textTheme.labelMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: _swatchColors.map((hex) {
+              final color = Color(int.parse('FF${hex.replaceFirst('#', '')}', radix: 16));
+              final selected = _selectedColor == hex;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedColor = hex),
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: selected
+                        ? Border.all(color: TavernColors.textPrimary, width: 2)
+                        : null,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }

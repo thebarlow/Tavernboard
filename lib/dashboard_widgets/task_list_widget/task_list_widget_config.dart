@@ -5,13 +5,13 @@ class TaskListWidgetConfig {
   final String? projectFilter;
 
   const TaskListWidgetConfig({
-    this.showCompleted = false,
+    this.showCompleted = true,
     this.projectFilter,
   });
 
   factory TaskListWidgetConfig.fromWidgetConfig(WidgetConfig config) {
     return TaskListWidgetConfig(
-      showCompleted: config.settings['show_completed'] as bool? ?? false,
+      showCompleted: config.settings['show_completed'] as bool? ?? true,
       projectFilter: config.settings['project_filter'] as String?,
     );
   }

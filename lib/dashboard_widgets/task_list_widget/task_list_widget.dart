@@ -209,6 +209,120 @@ class _TaskTile extends ConsumerWidget {
           color: entry.isCompleted ? TavernColors.textSecondary : TavernColors.textPrimary,
         ),
       ),
+      trailing: PopupMenuButton<String>(
+        icon: const Icon(Icons.more_vert, color: TavernColors.textSecondary, size: 18),
+        color: TavernColors.surfaceElevated,
+        onSelected: (value) async {
+          if (value == 'edit') {
+            showDialog<void>(
+              context: context,
+              builder: (ctx) => _EditTaskDialog(entry: entry, ref: ref),
+            );
+          } else if (value == 'delete') {
+            try {
+              await ref.read(entryServiceProvider).deleteEntry(entry.id);
+              ref.invalidate(entriesProvider);
+            } catch (e) {
+              if (context.mounted) {
+                TavernSnackbar.showError(context, 'Failed to delete task');
+              }
+            }
+          }
+        },
+        itemBuilder: (_) => [
+          const PopupMenuItem(value: 'edit', child: Text('Edit')),
+          const PopupMenuItem(value: 'delete', child: Text('Delete')),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditTaskDialog extends ConsumerStatefulWidget {
+  final Entry entry;
+  final WidgetRef ref;
+
+  const _EditTaskDialog({required this.entry, required this.ref});
+
+  @override
+  ConsumerState<_EditTaskDialog> createState() => _EditTaskDialogState();
+}
+
+class _EditTaskDialogState extends ConsumerState<_EditTaskDialog> {
+  late final TextEditingController _titleController;
+  String? _titleError;
+  String? _selectedProjectId;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.entry.title);
+    _selectedProjectId = widget.entry.projectId;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      setState(() => _titleError = 'Title is required');
+      return;
+    }
+    setState(() => _isSaving = true);
+    try {
+      await ref.read(entryServiceProvider).updateEntry(widget.entry.id, {
+        'title': title,
+        'project_id': _selectedProjectId,
+      });
+      ref.invalidate(entriesProvider);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) TavernSnackbar.showError(context, 'Failed to update task');
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final projectsAsync = ref.watch(projectsProvider);
+
+    return TavernDialog(
+      title: 'Edit Task',
+      onSave: _save,
+      isSaving: _isSaving,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TavernTextField(
+            controller: _titleController,
+            label: 'Title',
+            required: true,
+            errorText: _titleError,
+            onChanged: (_) => setState(() => _titleError = null),
+          ),
+          const SizedBox(height: 16),
+          projectsAsync.when(
+            data: (projects) => DropdownButtonFormField<String>(
+              value: _selectedProjectId,
+              decoration: const InputDecoration(labelText: 'Campaign (optional)'),
+              dropdownColor: TavernColors.surface,
+              style: const TextStyle(color: TavernColors.textPrimary),
+              items: projects
+                  .map((p) => DropdownMenuItem(value: p.id, child: Text(p.name)))
+                  .toList(),
+              onChanged: (val) => setState(() => _selectedProjectId = val),
+            ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
+      ),
     );
   }
 }
