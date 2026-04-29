@@ -19,3 +19,10 @@ _flutter_archive/.dart_tool/
 
 # Worktrees
 .worktrees/
+
+# Build artifacts / caches
+*.tsbuildinfo
+coverage/
+*.log
+npm-debug.log*
+.eslintcache
