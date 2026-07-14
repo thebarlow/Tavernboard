@@ -12,22 +12,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Flutter
-        uses: subosito/flutter-action@v2
+      - name: Install Node
+        uses: actions/setup-node@v4
         with:
-          flutter-version: '3.27.4'
-          channel: stable
-          cache: true
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: flutter pub get
+        run: npm ci
 
-      - name: Build web
-        run: flutter build web --release
+      - name: Test
+        run: npm test -- --run
+
+      - name: Build
+        # Publishable client-side keys: shipped in the JS bundle by design, not secrets.
+        env:
+          VITE_SUPABASE_URL: https://zdbjizfxkhdmwsotuzxh.supabase.co
+          VITE_SUPABASE_ANON_KEY: sb_publishable_yLvgmk7EbpSvpx2UcPstiw_BD4IH-IO
+        run: npm run build
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy build/web --project-name=tavernboard
+          command: pages deploy dist --project-name=tavernboard
