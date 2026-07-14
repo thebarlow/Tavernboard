@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
 
@@ -17,17 +18,27 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const lastUserIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      lastUserIdRef.current = data.session?.user.id ?? null
       setSession(data.session)
       setIsLoading(false)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, s) => {
+      const userId = s?.user.id ?? null
+      // Drop the previous user's cached data on sign-out or account switch;
+      // token refreshes for the same user must not wipe the cache.
+      if (userId !== lastUserIdRef.current) {
+        lastUserIdRef.current = userId
+        queryClient.clear()
+      }
       setSession(s)
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, [queryClient])
 
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })

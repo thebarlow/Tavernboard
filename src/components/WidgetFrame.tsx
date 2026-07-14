@@ -13,18 +13,16 @@ export default function WidgetFrame({ title, onRemove, onSettings, children }: W
         <div className="flex items-center gap-2">
           {onSettings && (
             <button
-              onPointerDown={e => e.stopPropagation()}
               onClick={onSettings}
-              className="text-text-secondary hover:text-parchment text-sm leading-none transition-colors"
+              className="widget-action text-text-secondary hover:text-parchment text-sm leading-none transition-colors"
               aria-label="Widget settings"
             >
               ⚙
             </button>
           )}
           <button
-            onPointerDown={e => e.stopPropagation()}
             onClick={onRemove}
-            className="text-text-secondary hover:text-ember text-lg leading-none transition-colors"
+            className="widget-action text-text-secondary hover:text-ember text-lg leading-none transition-colors"
             aria-label="Remove widget"
           >
             ×

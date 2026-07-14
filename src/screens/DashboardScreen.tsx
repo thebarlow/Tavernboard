@@ -99,6 +99,7 @@ export default function DashboardScreen() {
             rowHeight={40}
             onLayoutChange={handleLayoutChange}
             draggableHandle=".widget-drag-handle"
+            draggableCancel=".widget-action"
           >
             {(widgets ?? []).map(w => {
               const def = widgetRegistry[w.typeKey]
