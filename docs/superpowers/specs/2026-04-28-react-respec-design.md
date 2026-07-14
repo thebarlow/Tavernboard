@@ -24,7 +24,7 @@ The Supabase project, schema, and auth setup carry over unchanged. Only the clie
 |---|---|---|
 | Build tool | Vite | Fast dev server, standard for React |
 | Language | TypeScript | Required for typed widget configs |
-| UI | React 19 | Current stable |
+| UI | React 18 | Stable; matches @types and testing-library support |
 | Styling | Tailwind CSS | Custom tavern theme tokens, no CSS sprawl |
 | Data fetching | TanStack Query v5 | Caching, deduplication, Supabase integration |
 | Auth + DB | Supabase JS SDK v2 | Existing Supabase project carries over |
@@ -142,14 +142,14 @@ TanStack Query deduplicates — if multiple widgets call `useEntries()`, one net
 
 ### Existing Tables
 
-`tasks`, `campaigns`, `profiles` carry over from Phase 1 (migration 001). No changes to schema or data.
+`entries`, `projects`, `categories`, and `recurrence_exceptions` carry over from Phase 1 (migration 001). The UI labels projects as "campaigns," but the table name is `projects`. Migration 002 adds `DEFAULT auth.uid()` to `user_id` columns so client inserts can omit it. No other schema changes.
 
 ### New Table — `dashboard_widgets` (migration 002)
 
 ```sql
 CREATE TABLE dashboard_widgets (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES auth.users NOT NULL,
+  user_id     UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   type_key    TEXT NOT NULL,
   pos_x       INT NOT NULL DEFAULT 0,
   pos_y       INT NOT NULL DEFAULT 0,
@@ -158,11 +158,13 @@ CREATE TABLE dashboard_widgets (
   settings    JSONB NOT NULL DEFAULT '{}',
   created_at  TIMESTAMPTZ DEFAULT now()
 );
+CREATE INDEX idx_dashboard_widgets_user_id ON dashboard_widgets(user_id);
 
 ALTER TABLE dashboard_widgets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage own widgets"
   ON dashboard_widgets FOR ALL
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 ```
 
 `settings` stores widget-specific config (e.g. `{"showCompleted": true, "projectId": null}`). Layout position and size are top-level columns, not buried in the JSONB blob.
@@ -214,6 +216,7 @@ const layout = widgets.map(w => ({
 
 - **Add:** "+ Add Widget" button opens a dialog listing all registered widget types from `widgetRegistry`. Selecting one inserts a new `dashboard_widgets` row with `meta.defaultConfig`. Query invalidates, widget appears.
 - **Remove:** Each widget header has a remove button. Deletes the row, query invalidates, widget disappears.
+- **Configure:** Each widget header has a settings button opening a dialog that edits the widget's typed config (fields per widget). Saves merge into the `settings` JSONB column. Without this, widget configs are stuck at defaults.
 
 ---
 
@@ -279,6 +282,9 @@ System is designed so adding a widget requires only: new folder + one registry e
 
 ## Out of Scope
 
+- Reminders / notifications (deferred — web push needs a service worker + permission flow; revisit after core dashboard ships)
+- Recurrence (deferred — `recurrence_exceptions` table and rrule logic exist server-side in schema only; the Dart `recurrence_engine` is not portable and will be reimplemented in TypeScript when scheduled entries land)
+- Categories (table carries over but no UI/hooks until a widget needs it)
 - Google OAuth (deferred — needs Google Cloud Console)
 - Cloudflare Pages deployment (deferred to PR-to-main time)
 - New widgets beyond the 3 above (Habit Tracker, Daily Reminder — separate tasks)

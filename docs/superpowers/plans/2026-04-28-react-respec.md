@@ -514,7 +514,7 @@ Create `supabase/migrations/002_dashboard_widgets.sql`:
 ```sql
 CREATE TABLE dashboard_widgets (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id     UUID REFERENCES auth.users NOT NULL,
+  user_id     UUID NOT NULL DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   type_key    TEXT NOT NULL,
   pos_x       INT NOT NULL DEFAULT 0,
   pos_y       INT NOT NULL DEFAULT 0,
@@ -523,6 +523,7 @@ CREATE TABLE dashboard_widgets (
   settings    JSONB NOT NULL DEFAULT '{}',
   created_at  TIMESTAMPTZ DEFAULT now()
 );
+CREATE INDEX idx_dashboard_widgets_user_id ON dashboard_widgets(user_id);
 
 ALTER TABLE dashboard_widgets ENABLE ROW LEVEL SECURITY;
 
@@ -530,6 +531,11 @@ CREATE POLICY "Users manage own widgets"
   ON dashboard_widgets FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- RLS does NOT populate user_id on insert; these defaults let clients omit it.
+ALTER TABLE entries  ALTER COLUMN user_id SET DEFAULT auth.uid();
+ALTER TABLE projects ALTER COLUMN user_id SET DEFAULT auth.uid();
+ALTER TABLE categories ALTER COLUMN user_id SET DEFAULT auth.uid();
 ```
 
 - [ ] **Step 2: Apply the migration**
@@ -1050,7 +1056,17 @@ export function useUpdateWidgetLayout() {
       const err = results.find(r => r.error)?.error
       if (err) throw err
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: DASHBOARD_KEY }),
+    // Deliberately NO invalidateQueries here: a refetch re-renders the grid,
+    // which fires onLayoutChange again → write loop / flicker mid-drag.
+    // Instead, patch the cache in place so it matches what was just written.
+    onSuccess: (_data, updates) => {
+      qc.setQueryData<DashboardWidget[]>(DASHBOARD_KEY, prev =>
+        prev?.map(w => {
+          const u = updates.find(x => x.id === w.id)
+          return u ? { ...w, posX: u.posX, posY: u.posY, width: u.width, height: u.height } : w
+        })
+      )
+    },
   })
 }
 ```
@@ -1582,7 +1598,7 @@ function EditTaskDialog({ entry, onClose }: { entry: Entry; onClose: () => void 
 }
 ```
 
-Note: `user_id: ''` is a placeholder — Supabase RLS sets the actual user_id server-side. The column is `NOT NULL` but Supabase uses the authenticated user's ID from the JWT automatically when inserting. Remove `user_id` from the insert payload entirely and let the server handle it, or set it from `supabase.auth.getUser()`.
+Note: RLS does **not** fill in `user_id` — it only checks rows. Inserts may omit `user_id` only because migration 002 adds `DEFAULT auth.uid()` to the column (see Task 4). Never pass `user_id: ''` — a NOT NULL column with no default would reject the insert outright.
 
 Revised — remove `user_id` from the insert body in `handleSave`:
 
@@ -2467,6 +2483,51 @@ Verify:
 ```bash
 git add src/
 git commit -m "[feat] Complete dashboard with react-grid-layout and widget registration"
+```
+
+---
+
+## Task 12: Widget Settings Dialog
+
+Without this task, the typed config system built in Tasks 7–10 is inert — every widget stays on `defaultConfig` forever because nothing edits the `settings` JSONB column.
+
+**Files:**
+- Create: `src/components/WidgetSettingsDialog.tsx`
+- Modify: `src/widgets/widgetRegistry.ts`, `src/components/WidgetFrame.tsx`, `src/screens/DashboardScreen.tsx`, `src/hooks/useDashboardLayout.ts`
+
+- [ ] **Step 1: Extend the widget contract with an optional settings form**
+
+Add to `WidgetDefinition` in `widgetRegistry.ts`:
+
+```ts
+export interface WidgetSettingsFormProps<C extends BaseWidgetConfig = BaseWidgetConfig> {
+  config: C
+  onChange: (next: C) => void
+}
+
+export interface WidgetDefinition<C extends BaseWidgetConfig = BaseWidgetConfig> {
+  meta: WidgetMeta<C>
+  Component: React.FC<{ config: C }>
+  SettingsForm?: React.FC<WidgetSettingsFormProps<C>>   // omit = widget has no settings
+}
+```
+
+- [ ] **Step 2: Add `useUpdateWidgetSettings` to `useDashboardLayout.ts`** — a mutation that writes `{ settings }` for one widget id, then invalidates `DASHBOARD_KEY` (invalidation is fine here; settings changes are discrete, not drag-frequency).
+
+- [ ] **Step 3: Create `WidgetSettingsDialog.tsx`** — reuses `Dialog`; holds draft config in local state, renders `def.SettingsForm`, saves via `useUpdateWidgetSettings`.
+
+- [ ] **Step 4: Add a ⚙ button to `WidgetFrame`** (with `onPointerDown` stopPropagation, like ×), shown only when the widget's definition has a `SettingsForm`.
+
+- [ ] **Step 5: Implement `SettingsForm` for task-list** (showCompleted checkbox + project select). Calendar and project-board can omit it until they have real config.
+
+- [ ] **Step 6: Tests** — settings form renders current config, save calls mutation with merged config.
+
+- [ ] **Step 7: Verify + commit**
+
+```bash
+npm test && npm run build
+git add src/
+git commit -m "[feat] Add per-widget settings dialog"
 ```
 
 ---
