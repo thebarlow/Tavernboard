@@ -8,6 +8,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (email: string, password: string) => Promise<void>
   signInAnonymously: () => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -43,13 +44,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error
   }
 
+  const signInWithGoogle = async () => {
+    // Full-page redirect to Google; on return, detectSessionInUrl picks up the session.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    if (error) throw error
+  }
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
   }
 
   return (
-    <AuthContext.Provider value={{ session, isLoading, signInWithEmail, signUpWithEmail, signInAnonymously, signOut }}>
+    <AuthContext.Provider value={{ session, isLoading, signInWithEmail, signUpWithEmail, signInAnonymously, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   )
