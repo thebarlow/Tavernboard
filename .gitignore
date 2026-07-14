@@ -26,3 +26,4 @@ coverage/
 *.log
 npm-debug.log*
 .eslintcache
+supabase/.temp/
