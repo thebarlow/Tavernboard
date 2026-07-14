@@ -25,10 +25,9 @@ jobs:
         run: npm test -- --run
 
       - name: Build
-        # Publishable client-side keys: shipped in the JS bundle by design, not secrets.
         env:
-          VITE_SUPABASE_URL: https://zdbjizfxkhdmwsotuzxh.supabase.co
-          VITE_SUPABASE_ANON_KEY: sb_publishable_yLvgmk7EbpSvpx2UcPstiw_BD4IH-IO
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
       - name: Deploy to Cloudflare Pages
