@@ -27,3 +27,4 @@ coverage/
 npm-debug.log*
 .eslintcache
 supabase/.temp/
+.mcp.json
